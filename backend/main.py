@@ -290,7 +290,7 @@ async def patient_chat(data: dict):
 You are a professional clinical assistant chatbot.
 
 STRICT RULES:
-- Keep answers under 100 words.
+- Keep answers under 250 words.
 - Be clear and structured.
 - Do NOT invent diseases.
 - Do NOT assume a medical condition unless the user clearly describes symptoms.
