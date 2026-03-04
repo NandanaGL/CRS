@@ -281,7 +281,9 @@ async def patient_chat(data: dict):
             model="llama3.2:1b",
             options={
                 "temperature": 0.1,
-                "num_predict": 150
+                # Increased to 350 so it has plenty of room to finish sentences,
+                # but we rely on the prompt below to keep it short.
+                "num_predict": 350 
             },
             messages=[
                 {
@@ -290,13 +292,13 @@ async def patient_chat(data: dict):
 You are a professional clinical assistant chatbot.
 
 STRICT RULES:
-- Keep answers under 250 words.
+- Answer ONLY the specific question the user asked. Do not add unnecessary extra information.
+- Keep your answer extremely precise and concise (Maximum 2 to 3 short sentences).
+- ALWAYS complete your thoughts and finish your sentences.
 - Be clear and structured.
-- Do NOT invent diseases.
-- Do NOT assume a medical condition unless the user clearly describes symptoms.
-- If the user only wants general information, do NOT ask about symptoms again.
+- Do NOT invent diseases or assume a medical condition unless clearly described.
+- If the user only wants general information, do NOT ask about symptoms.
 - Ask only ONE follow-up question if absolutely necessary.
-- If conversation appears to be ending, respond politely and stop.
 """
                 },
                 {

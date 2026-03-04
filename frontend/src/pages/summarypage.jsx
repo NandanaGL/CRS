@@ -170,6 +170,14 @@ export function SummaryContent() {
     setFiles([]);
   };
 
+  const clearAllData = () => {
+    setFiles([]);
+    setSummary(null);
+    setRiskLevel(null);
+    setDoctorNotes("");
+    setError("");
+  };
+
   /* ---------- SUBMIT ---------- */
   const handleSubmit = async (e) => {
     e.preventDefault();
