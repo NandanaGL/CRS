@@ -1,132 +1,206 @@
-// src/pages/home.jsx
-import { useEffect } from "react"; // <-- Added import here
-import PatientChatPage from "./patientchatbot.jsx";
-import SummaryPage from "./summarypage.jsx";
+import { useEffect, useState, Suspense, lazy, memo } from "react";
+import { useTheme } from "../context/ThemeContext";
+import ThemeToggle from "../components/ThemeToggle";
 
-function CRSIntro() {
+// Lazy loading heavy modules
+const SummaryPage = lazy(() => import("./summarypage.jsx"));
+const PatientChatPage = lazy(() => import("./patientchatbot.jsx"));
+
+/* ---------- REFINED HUD STYLES ---------- */
+const getHomeStyles = (isDark) => `
+  .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: ${isDark ? "rgba(167, 139, 246, 0.3)" : "rgba(109, 40, 217, 0.3)"};
+    border-radius: 10px;
+  }
+
+  .snap-container {
+    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${isDark ? "%23a78bfa" : "%236d28d9"}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"></path><path d="M2 12h20"></path></svg>') 12 12, crosshair !important;
+  }
+
+  @keyframes scanline {
+    0% { top: 0%; opacity: 0; }
+    5% { opacity: ${isDark ? "0.05" : "0.03"}; }
+    95% { opacity: ${isDark ? "0.05" : "0.03"}; }
+    100% { top: 100%; opacity: 0; }
+  }
+  .hud-scanline {
+    position: absolute;
+    width: 100%;
+    height: 1px;
+    background: linear-gradient(to right, transparent, ${isDark ? "#a78bfa" : "#7c3aed"}, transparent);
+    animation: scanline 10s linear infinite;
+    z-index: 10;
+    pointer-events: none;
+  }
+
+  .btn-hover-effect:hover {
+    box-shadow: 0 0 30px ${isDark ? "rgba(139, 92, 246, 0.4)" : "rgba(109, 40, 217, 0.35)"};
+    transform: translateY(-2px);
+  }
+
+  .silver-text {
+    background: ${
+      isDark
+        ? "linear-gradient(180deg, #ffffff 0%, #c0c0c0 40%, #888888 100%)"
+        : "linear-gradient(180deg, #1a1a2e 0%, #4a4a6a 40%, #2d2d4e 100%)"
+    };
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+`;
+
+const CRSIntro = memo(({ isDark }) => {
   return (
-    <div className="relative w-full h-full flex flex-col items-center justify-center overflow-hidden">
-      {/* Hero Gradient */}
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(168,85,247,0.55),transparent_55%),radial-gradient(circle_at_center,_rgba(129,140,248,0.4),transparent_60%),radial-gradient(circle_at_bottom,_rgba(56,189,248,0.35),transparent_55%)]" />
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/40 via-black/70 to-black" />
+    <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
+      {/* HUD Frame Brackets */}
+      <div className={`absolute top-12 left-12 w-8 h-8 border-t-2 border-l-2 z-20 transition-colors duration-500 ${isDark ? "border-white/5" : "border-violet-300/40"}`} />
+      <div className={`absolute top-12 right-12 w-8 h-8 border-t-2 border-r-2 z-20 transition-colors duration-500 ${isDark ? "border-white/5" : "border-violet-300/40"}`} />
+      <div className={`absolute bottom-12 left-12 w-8 h-8 border-b-2 border-l-2 z-20 transition-colors duration-500 ${isDark ? "border-white/5" : "border-violet-300/40"}`} />
+      <div className={`absolute bottom-12 right-12 w-8 h-8 border-b-2 border-r-2 z-20 transition-colors duration-500 ${isDark ? "border-white/5" : "border-violet-300/40"}`} />
 
-      {/* Animated Background Orbs */}
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute top-20 left-1/4 h-64 w-64 rounded-full bg-violet-500/20 blur-3xl animate-pulse" />
-        <div className="absolute bottom-20 right-1/4 h-80 w-80 rounded-full bg-fuchsia-500/20 blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
-        <div className="absolute top-1/2 left-1/2 h-72 w-72 rounded-full bg-sky-500/20 blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
-      </div>
+      {/* Subtle Grid Background */}
+      <div
+        className="absolute inset-0 z-0 pointer-events-none"
+        style={{
+          backgroundImage: `linear-gradient(${isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.04)"} 1px, transparent 1px), linear-gradient(90deg, ${isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.04)"} 1px, transparent 1px)`,
+          backgroundSize: "60px 60px",
+        }}
+      />
 
-      
+      <div className="relative z-30 flex flex-col items-center text-center px-6 max-w-5xl animate-in fade-in duration-1000">
+        <div className="mb-10 flex flex-col items-center">
+          <h1 className="silver-text text-7xl md:text-9xl font-black tracking-tighter leading-none mb-2">
+            CLINICAL
+          </h1>
+          <h2 className={`text-4xl md:text-6xl font-light tracking-[0.25em] uppercase transition-colors duration-500 ${isDark ? "text-violet-400" : "text-violet-700"}`}>
+            REVIEW SYSTEM
+          </h2>
+          <div className={`mt-8 h-[1px] w-24 transition-colors duration-500 ${isDark ? "bg-white/10" : "bg-violet-200"}`} />
+        </div>
 
-      {/* Main Text */}
-      <div className="relative flex flex-col items-center gap-6 text-center px-4 z-10 max-w-4xl">
-        <h6 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight text-slate-50 leading-tight">
-          The Clinic Record <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 via-fuchsia-400 to-sky-400">Framework</span>
-        </h6>
-
-        <p className="max-w-2xl text-base md:text-lg text-slate-300 leading-relaxed">
-          One workspace for summaries, investigations, and patient chat. 
-          Set it up once for your clinic and get structured, readable 
-          information for every visit.
+        <p className={`max-w-md text-[11px] md:text-xs leading-relaxed uppercase tracking-[0.2em] mb-12 transition-colors duration-500 ${isDark ? "text-slate-500" : "text-slate-500"}`}>
+          Transforming complex clinical data into structured, actionable intelligence. Secure, precise, and built for modern healthcare documentation
         </p>
 
-        
-        {/* Buttons */}
-        <div className="mt-6 flex flex-wrap items-center justify-center gap-4 text-sm">
+        <div className="flex flex-col sm:flex-row items-center gap-6">
           <a
             href="#summary"
-            className="group relative rounded-full bg-gradient-to-r from-violet-500 via-fuchsia-500 to-sky-400 px-8 py-3 font-semibold text-slate-950 shadow-[0_0_30px_rgba(168,85,247,0.8)] hover:shadow-[0_0_40px_rgba(168,85,247,1)] transition-all duration-300 hover:scale-105"
+            className={`btn-hover-effect min-w-[220px] px-8 py-4 text-[10px] font-bold uppercase tracking-[0.3em] rounded-sm transition-all ${
+              isDark ? "bg-violet-600 text-white" : "bg-violet-700 text-white"
+            }`}
           >
-            <span className="relative z-10">Get started</span>
-            <div className="absolute inset-0 rounded-full bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+            Initialize Review
           </a>
-
           <a
             href="#chatbot"
-            className="group rounded-full border-2 border-slate-500/70 bg-white/5 px-8 py-3 font-semibold text-slate-200 hover:border-violet-400 hover:bg-white/10 hover:text-violet-100 transition-all duration-300 backdrop-blur-sm"
+            className={`min-w-[220px] px-8 py-4 text-[10px] font-bold uppercase tracking-[0.3em] rounded-sm transition-all ${
+              isDark
+                ? "border border-white/10 text-white hover:bg-white/5"
+                : "border border-violet-300 text-violet-800 hover:bg-violet-50"
+            }`}
           >
-            Open patient chat
+            Open Patient Portal
           </a>
-        </div>
-
-        {/* Stats or Info */}
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-8 text-center opacity-80">
-          <div>
-            <div className="text-2xl font-bold text-violet-400">Fast</div>
-            <div className="text-xs text-slate-500">Processing</div>
-          </div>
-          <div className="h-8 w-px bg-slate-700/50" />
-          <div>
-            <div className="text-2xl font-bold text-fuchsia-400">Secure</div>
-            <div className="text-xs text-slate-500">Data Handling</div>
-          </div>
-          <div className="h-8 w-px bg-slate-700/50" />
-          <div>
-            <div className="text-2xl font-bold text-sky-400">Smart</div>
-            <div className="text-xs text-slate-500">AI Analysis</div>
-          </div>
         </div>
       </div>
 
-      {/* Bottom Shape */}
-      <div className="pointer-events-none absolute bottom-0 left-1/2 h-40 w-[80%] -translate-x-1/2 rounded-t-[3rem] bg-gradient-to-t from-black via-slate-950/80 to-transparent" />
+      <div className="hud-scanline" />
     </div>
   );
-}
-
-function SummarySection() {
-  return (
-    <div className="w-full max-w-5xl px-6 md:px-10 lg:px-16">
-      <SummaryPage />
-    </div>
-  );
-}
+});
 
 export default function Home() {
-  // <-- Added this useEffect block
+  const [activeSection, setActiveSection] = useState("intro");
+  const { isDark } = useTheme();
+
   useEffect(() => {
-    // 1. Force the window to scroll to the top immediately
     window.scrollTo(0, 0);
-    
-    // 2. Clean the URL so the hash doesn't trigger a jump on reload
-    if (window.location.hash) {
-      window.history.replaceState(null, "", window.location.pathname);
-    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) setActiveSection(entry.target.id);
+        });
+      },
+      { threshold: 0.4 }
+    );
+    document.querySelectorAll("section").forEach((s) => observer.observe(s));
+    return () => observer.disconnect();
   }, []);
 
   return (
-    <div className="h-screen w-full overflow-y-scroll scroll-smooth snap-y snap-mandatory bg-[#020314] text-slate-100">
+    <div
+      id="main-snap-container"
+      className={`snap-container h-screen w-full overflow-y-scroll scroll-smooth snap-y snap-mandatory custom-scrollbar relative transition-colors duration-500 ${
+        isDark ? "bg-[#010103] text-slate-100" : "bg-slate-50 text-slate-900"
+      }`}
+    >
+      <style>{getHomeStyles(isDark)}</style>
 
-      {/* 1. Neon CRS Landing Hero */}
-      <section
-        id="intro"
-        className="snap-start h-screen flex items-center justify-center px-4"
-        style={{ minHeight: '100vh' }}
-      >
-        <CRSIntro />
+      <ThemeToggle />
+
+      {/* HUD SIDEBAR NAVIGATION */}
+      <div className="fixed right-10 top-1/2 -translate-y-1/2 z-[100] flex flex-col items-center gap-10">
+        {["intro", "summary", "chatbot"].map((id) => (
+          <a key={id} href={`#${id}`} className="group relative flex items-center justify-center">
+            <span
+              className={`absolute right-10 text-[9px] font-black uppercase tracking-[0.4em] transition-all duration-500 whitespace-nowrap ${
+                activeSection === id
+                  ? `opacity-100 translate-x-0 ${isDark ? "text-violet-400" : "text-violet-700"}`
+                  : `opacity-0 translate-x-4 pointer-events-none ${isDark ? "text-slate-600" : "text-slate-400"}`
+              }`}
+            >
+              {id === "intro" ? "LOG_01" : id === "summary" ? "ANLYS_02" : "PORTAL_03"}
+            </span>
+            <div
+              className={`h-1.5 w-1.5 rounded-full border transition-all duration-500 ${
+                activeSection === id
+                  ? `scale-150 ${
+                      isDark
+                        ? "bg-violet-500 border-violet-500 shadow-[0_0_12px_#8b5cf6]"
+                        : "bg-violet-700 border-violet-700 shadow-[0_0_12px_rgba(109,40,217,0.5)]"
+                    }`
+                  : `bg-transparent ${isDark ? "border-white/20 group-hover:border-white/50" : "border-slate-300 group-hover:border-violet-500"}`
+              }`}
+            />
+          </a>
+        ))}
+      </div>
+
+      <section id="intro" className="snap-start h-screen w-full flex items-center justify-center">
+        <CRSIntro isDark={isDark} />
       </section>
 
-      {/* 2. Doctor Summary Section */}
       <section
         id="summary"
-        className="snap-start h-screen flex items-center justify-center border-t border-white/5 px-4"
-        style={{ minHeight: '100vh' }}
+        className={`snap-start h-screen w-full flex items-center justify-center px-12 lg:px-24 transition-colors duration-500 ${isDark ? "" : "bg-slate-50"}`}
       >
-        <SummarySection />
+        <Suspense fallback={<div className={`text-[10px] uppercase ${isDark ? "text-violet-500" : "text-violet-700"}`}>Decrypting...</div>}>
+          <div
+            className={`w-full max-w-[1500px] transition-all duration-700 transform ${
+              activeSection === "summary" ? "opacity-100 scale-100 translate-x-0" : "opacity-0 scale-95 translate-x-8"
+            }`}
+          >
+            <SummaryPage />
+          </div>
+        </Suspense>
       </section>
 
-      {/* 3. Chatbot Section */}
       <section
         id="chatbot"
-        className="snap-start h-screen flex items-center justify-center border-t border-white/5 px-4"
-        style={{ minHeight: '100vh' }}
+        className={`snap-start h-screen w-full flex items-center justify-center px-12 lg:px-24 transition-colors duration-500 ${isDark ? "" : "bg-slate-50"}`}
       >
-        <div className="w-full max-w-5xl flex justify-center scale-90 md:scale-100">
-          <PatientChatPage />
-        </div>
+        <Suspense fallback={<div className={`text-[10px] uppercase ${isDark ? "text-sky-500" : "text-sky-700"}`}>Connecting...</div>}>
+          <div
+            className={`w-full max-w-[1500px] flex justify-center transition-all duration-700 transform ${
+              activeSection === "chatbot" ? "opacity-100 scale-100 translate-x-0" : "opacity-0 scale-95 translate-x-8"
+            }`}
+          >
+            <PatientChatPage />
+          </div>
+        </Suspense>
       </section>
-
     </div>
   );
 }

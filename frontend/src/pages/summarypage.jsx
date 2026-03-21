@@ -1,145 +1,126 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import jsPDF from "jspdf";
+import { 
+  FileText, Trash2, Download, AlertTriangle, CheckCircle, 
+  Stethoscope, Pill, Microscope, ClipboardList, Activity,
+  Info, Zap, UploadCloud, User 
+} from "lucide-react";
+import { useTheme } from "../context/ThemeContext";
 
+/* ---------- CUSTOM GLOBAL STYLES ---------- */
+const getCustomGlobalStyles = (isDark) => `
+  .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: ${isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.04)"};
+    border-radius: 10px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: ${isDark ? "rgba(139,92,246,0.3)" : "rgba(109,40,217,0.25)"};
+    border-radius: 10px;
+  }
+  .custom-scrollbar:hover::-webkit-scrollbar-thumb {
+    background: ${isDark ? "rgba(139,92,246,0.6)" : "rgba(109,40,217,0.5)"};
+  }
+  body {
+    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${isDark ? "%23a78bfa" : "%236d28d9"}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"></path><path d="M2 12h20"></path></svg>') 12 12, crosshair !important;
+  }
+  button, a, input, select, textarea, .cursor-pointer {
+    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%2338bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4" fill="%2338bdf8"></circle></svg>') 12 12, pointer !important;
+  }
+`;
 
-/* ---------- SECTION COMPONENT ---------- */
-function Section({ title, text, accent = "violet" }) {
-  if (!text) return null;
+/* ---------- SCROLL REVEAL ANIMATION WRAPPER ---------- */
+function ScrollReveal({ children, animationStyle = "fade-up", delay = 0, className = "" }) {
+  const [isVisible, setIsVisible] = useState(false);
+  const ref = useRef(null);
 
-  const accentMap = {
-    violet: "from-violet-500/40 to-fuchsia-500/30",
-    blue: "from-sky-500/40 to-cyan-500/30",
-    emerald: "from-emerald-500/40 to-teal-500/30",
-    amber: "from-amber-400/40 to-orange-500/30",
-  };
-
-  /* 🔥 KEYWORDS */
-  const riskKeywords = [
-    "fever",
-    "severe",
-    "uncontrolled",
-    "chest pain",
-    "shortness of breath",
-    "bp",
-    "hypertension",
-    "tachycardia",
-    "stroke",
-    "bleeding",
-    "emergency",
-    "critical",
-    "elevated",
-    "abnormal",
-    "worsening",
-    "infection",
-    "inflammation",
-  ];
-
-  const highlightText = (content) => {
-    if (!content) return "";
-
-    let highlighted = content;
-
-    /* ---------- KEYWORD HIGHLIGHT ---------- */
-    riskKeywords.forEach((word) => {
-      const regex = new RegExp(`\\b(${word})\\b`, "gi");
-      highlighted = highlighted.replace(
-        regex,
-        `<span style="color:#f87171;font-weight:600;">$1</span>`
-      );
-    });
-
-    /* ---------- BP (e.g. 180/110) ---------- */
-    highlighted = highlighted.replace(
-      /(\d{2,3})\s*\/\s*(\d{2,3})/g,
-      (match, sys, dia) => {
-        sys = parseInt(sys);
-        dia = parseInt(dia);
-
-        if (sys >= 180 || dia >= 110)
-          return `<span style="color:#ef4444;font-weight:700;">${match}</span>`;
-        if (sys >= 140 || dia >= 90)
-          return `<span style="color:#facc15;font-weight:600;">${match}</span>`;
-
-        return match;
-      }
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+          observer.unobserve(entry.target);
+        }
+      },
+      { threshold: 0.15 }
     );
+    if (ref.current) observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, []);
 
-    /* ---------- Glucose ---------- */
-    highlighted = highlighted.replace(
-      /glucose[^\d]*(\d+)/gi,
-      (match, value) => {
-        value = parseInt(value);
-
-        if (value >= 250)
-          return `<span style="color:#ef4444;font-weight:700;">${match}</span>`;
-        if (value >= 180)
-          return `<span style="color:#facc15;font-weight:600;">${match}</span>`;
-
-        return match;
-      }
-    );
-
-    /* ---------- CRP ---------- */
-    highlighted = highlighted.replace(
-      /CRP\s*(\d+)/gi,
-      (match, value) => {
-        value = parseInt(value);
-        if (value > 10)
-          return `<span style="color:#ef4444;font-weight:700;">${match}</span>`;
-        return match;
-      }
-    );
-
-    /* ---------- Creatinine ---------- */
-    highlighted = highlighted.replace(
-      /Creatinine\s*(\d+\.?\d*)/gi,
-      (match, value) => {
-        value = parseFloat(value);
-
-        if (value > 2)
-          return `<span style="color:#ef4444;font-weight:700;">${match}</span>`;
-        if (value > 1.5)
-          return `<span style="color:#facc15;font-weight:600;">${match}</span>`;
-
-        return match;
-      }
-    );
-
-    /* ---------- Hemoglobin ---------- */
-    highlighted = highlighted.replace(
-      /Hb\s*(\d+\.?\d*)/gi,
-      (match, value) => {
-        value = parseFloat(value);
-
-        if (value < 8)
-          return `<span style="color:#ef4444;font-weight:700;">${match}</span>`;
-        if (value < 11)
-          return `<span style="color:#facc15;font-weight:600;">${match}</span>`;
-
-        return match;
-      }
-    );
-
-    return highlighted;
+  const styles = {
+    "fade-up": isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-12",
+    "zoom-in": isVisible ? "opacity-100 scale-100" : "opacity-0 scale-90",
+    "slide-right": isVisible ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-12",
   };
 
   return (
-    <div className="relative rounded-2xl bg-slate-900/80 px-5 py-5 text-slate-100 border border-slate-800/80">
-      <div
-        className={`absolute inset-y-2 left-0 w-1 rounded-full bg-gradient-to-b ${
-          accentMap[accent] || accentMap.violet
-        }`}
-      />
-      <div className="pl-4">
-        <div className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-400">
-          {title}
+    <div
+      ref={ref}
+      className={`transition-all duration-1000 ease-out ${styles[animationStyle]} w-full h-full ${className}`}
+      style={{ transitionDelay: `${delay}ms` }}
+    >
+      {children}
+    </div>
+  );
+}
+
+/* ---------- SECTION CARD ---------- */
+function Section({ title, text, icon: Icon, accent = "violet", isDark, className = "" }) {
+  if (!text || text === "Not mentioned") return null;
+
+  const accentMap = {
+    violet: {
+      border: isDark ? "border-violet-500/20" : "border-violet-300/60",
+      glow: isDark ? "bg-violet-500/10" : "bg-violet-100",
+      text: isDark ? "text-violet-400" : "text-violet-700",
+      iconBg: isDark ? "bg-violet-500/10" : "bg-violet-100",
+    },
+    blue: {
+      border: isDark ? "border-sky-500/20" : "border-sky-300/60",
+      glow: isDark ? "bg-sky-500/10" : "bg-sky-100",
+      text: isDark ? "text-sky-400" : "text-sky-700",
+      iconBg: isDark ? "bg-sky-500/10" : "bg-sky-100",
+    },
+    emerald: {
+      border: isDark ? "border-emerald-500/20" : "border-emerald-300/60",
+      glow: isDark ? "bg-emerald-500/10" : "bg-emerald-100",
+      text: isDark ? "text-emerald-400" : "text-emerald-700",
+      iconBg: isDark ? "bg-emerald-500/10" : "bg-emerald-100",
+    },
+    amber: {
+      border: isDark ? "border-amber-500/20" : "border-amber-300/60",
+      glow: isDark ? "bg-amber-500/10" : "bg-amber-100",
+      text: isDark ? "text-amber-400" : "text-amber-700",
+      iconBg: isDark ? "bg-amber-500/10" : "bg-amber-100",
+    },
+  };
+
+  const theme = accentMap[accent];
+
+  return (
+    <div
+      className={`group relative flex flex-col overflow-hidden rounded-[2rem] backdrop-blur-md border transition-all duration-300 p-6 ${
+        isDark
+          ? `bg-[#0a0a14]/80 border-white/[0.05] hover:border-white/[0.1] hover:bg-[#0f0f1c] hover:shadow-xl`
+          : `bg-white/80 border-slate-200 hover:border-violet-200 hover:shadow-lg shadow-sm`
+      } ${className}`}
+    >
+      <div className={`absolute -top-10 -left-10 h-32 w-32 rounded-full blur-[50px] opacity-30 transition-opacity duration-500 group-hover:opacity-60 pointer-events-none ${theme.glow}`} />
+
+      <div className="flex items-center gap-3 mb-4 relative z-10">
+        <div className={`p-2 rounded-xl border ${theme.iconBg} ${theme.text} transition-transform duration-300 group-hover:scale-110`}>
+          <Icon className="w-4 h-4" />
         </div>
-        <p
-          className="whitespace-pre-wrap text-sm leading-relaxed text-slate-200"
-          dangerouslySetInnerHTML={{
-            __html: highlightText(text),
-          }}
-        />
+        <h3 className={`text-[13px] font-bold uppercase tracking-widest ${isDark ? "text-slate-200" : "text-slate-700"}`}>
+          {title}
+        </h3>
+      </div>
+
+      <div className="relative z-10 pl-1 flex-1">
+        <p className={`text-[14px] leading-relaxed font-medium whitespace-pre-wrap break-words ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+          {text}
+        </p>
       </div>
     </div>
   );
@@ -151,438 +132,274 @@ export function SummaryContent() {
   const [summary, setSummary] = useState(null);
   const [riskLevel, setRiskLevel] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
   const [doctorNotes, setDoctorNotes] = useState("");
+  const [patientName, setPatientName] = useState("");
+  const { isDark } = useTheme();
 
   const fileInputRef = useRef(null);
 
-  /* ---------- FILE HANDLING ---------- */
-  const handleFileChange = (e) => {
-    const newFiles = Array.from(e.target.files || []);
-    setFiles((prev) => [...prev, ...newFiles]);
-  };
-
-  const removeFile = (index) => {
-    setFiles((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const clearAllFiles = () => {
-    setFiles([]);
-  };
-
-  const clearAllData = () => {
-    setFiles([]);
-    setSummary(null);
-    setRiskLevel(null);
-    setDoctorNotes("");
-    setError("");
-  };
-
-  /* ---------- SUBMIT ---------- */
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (!files.length) {
-      setError("Please choose one or more files first.");
-      return;
-    }
-
+    if (!files.length) return;
+    setLoading(true);
     try {
-      setLoading(true);
-      setError("");
-      setSummary(null);
-      setRiskLevel(null);
-      setDoctorNotes("");
-
       const formData = new FormData();
-      files.forEach((file) => formData.append("files", file));
-
-      const res = await fetch("http://127.0.0.1:8000/summarize-multi", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!res.ok) {
-        throw new Error("Backend error: " + res.status);
-      }
-
+      files.forEach((f) => formData.append("files", f));
+      const res = await fetch("http://127.0.0.1:8000/summarize-multi", { method: "POST", body: formData });
       const data = await res.json();
-      console.log("FULL BACKEND RESPONSE:", data);
-
       setSummary(data.summary);
       setRiskLevel(data.risk_level);
     } catch (err) {
       console.error(err);
-      setError("Failed to generate summary. Is backend running?");
     } finally {
       setLoading(false);
     }
   };
 
-  /* ---------- PDF DOWNLOAD ---------- */
   const handleDownload = () => {
-    if (!summary) return;
-
     const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const margin = 20;
-    const maxWidth = pageWidth - 2 * margin;
-    let yPosition = 20;
+    const pdfTitle = patientName.trim() ? `${patientName}'s Medical Record` : "Patient Medical Record";
+    doc.setFontSize(22);
+    doc.text(pdfTitle, 20, 20);
+    doc.setFontSize(11);
+    doc.setTextColor(100);
+    doc.text(`Status: ${riskLevel || "Stable"}`, 20, 30);
+    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 20, 36);
+    doc.setTextColor(0);
 
-    const riskKeywords = [
-      "fever", "severe", "uncontrolled", "chest pain", "shortness of breath",
-      "bp", "hypertension", "tachycardia", "stroke", "bleeding", "emergency",
-      "critical", "elevated", "abnormal", "worsening", "infection", "inflammation"
+    let y = 50;
+    const sections = [
+      ["Presenting Complaint", summary.presenting_complaint],
+      ["Medical History", summary.history],
+      ["Medications & Allergies", summary.meds_allergies],
+      ["Investigations", summary.investigations_timeline],
+      ["Physician Remarks", doctorNotes],
     ];
 
-    // Title
-    doc.setFontSize(16);
-    doc.setFont(undefined, 'bold');
-    doc.text("PATIENT SUMMARY REPORT", margin, yPosition);
-    yPosition += 10;
-
-    // Risk Level
-    if (riskLevel) {
-      doc.setFontSize(10);
-      doc.setFont(undefined, 'bold');
-      if (riskLevel === "High Risk") {
-        doc.setTextColor(239, 68, 68);
-      } else if (riskLevel === "Moderate Risk") {
-        doc.setTextColor(250, 204, 21);
-      } else {
-        doc.setTextColor(52, 211, 153);
-      }
-      doc.text(`Risk Level: ${riskLevel}`, margin, yPosition);
-      doc.setTextColor(0, 0, 0);
-      yPosition += 8;
-    }
-
-    doc.setFontSize(9);
-    doc.setFont(undefined, 'normal');
-    doc.text("_".repeat(85), margin, yPosition);
-    yPosition += 8;
-
-    const addSection = (title, content) => {
+    sections.forEach(([label, content]) => {
       if (!content) return;
+      doc.setFont(undefined, "bold");
+      doc.text(label.toUpperCase(), 20, y);
+      doc.setFont(undefined, "normal");
+      const splitText = doc.splitTextToSize(content, 170);
+      doc.text(splitText, 20, y + 8);
+      y += splitText.length * 6 + 16;
+      if (y > 270) { doc.addPage(); y = 20; }
+    });
 
-      if (yPosition > 260) {
-        doc.addPage();
-        yPosition = 20;
-      }
-
-      // Section title
-      doc.setFontSize(11);
-      doc.setFont(undefined, 'bold');
-      doc.text(title.toUpperCase(), margin, yPosition);
-      yPosition += 6;
-
-      doc.setFontSize(9);
-      doc.setFont(undefined, 'normal');
-
-      // Process content with highlighting
-      const lines = doc.splitTextToSize(content, maxWidth);
-      
-      lines.forEach((line) => {
-        if (yPosition > 280) {
-          doc.addPage();
-          yPosition = 20;
-        }
-
-        let xPosition = margin;
-        const words = line.split(/(\s+)/);
-
-        words.forEach((word) => {
-          const cleanWord = word.toLowerCase().replace(/[.,;:!?]/g, '');
-          let isHighlighted = false;
-
-          // Check for risk keywords
-          if (riskKeywords.some(kw => cleanWord.includes(kw))) {
-            doc.setTextColor(248, 113, 113);
-            doc.setFont(undefined, 'bold');
-            isHighlighted = true;
-          }
-
-          // Check for BP pattern
-          const bpMatch = word.match(/(\d{2,3})\/(\d{2,3})/);
-          if (bpMatch) {
-            const sys = parseInt(bpMatch[1]);
-            const dia = parseInt(bpMatch[2]);
-            if (sys >= 180 || dia >= 110) {
-              doc.setTextColor(239, 68, 68);
-              doc.setFont(undefined, 'bold');
-              isHighlighted = true;
-            } else if (sys >= 140 || dia >= 90) {
-              doc.setTextColor(250, 204, 21);
-              doc.setFont(undefined, 'bold');
-              isHighlighted = true;
-            }
-          }
-
-          // Check for glucose
-          if (/glucose/i.test(word)) {
-            const glucoseMatch = line.match(/glucose[^\d]*(\d+)/i);
-            if (glucoseMatch) {
-              const value = parseInt(glucoseMatch[1]);
-              if (value >= 250) {
-                doc.setTextColor(239, 68, 68);
-                doc.setFont(undefined, 'bold');
-                isHighlighted = true;
-              } else if (value >= 180) {
-                doc.setTextColor(250, 204, 21);
-                doc.setFont(undefined, 'bold');
-                isHighlighted = true;
-              }
-            }
-          }
-
-          // Check for CRP
-          if (/crp/i.test(cleanWord)) {
-            const crpMatch = line.match(/CRP\s*(\d+)/i);
-            if (crpMatch && parseInt(crpMatch[1]) > 10) {
-              doc.setTextColor(239, 68, 68);
-              doc.setFont(undefined, 'bold');
-              isHighlighted = true;
-            }
-          }
-
-          // Check for Creatinine
-          if (/creatinine/i.test(cleanWord)) {
-            const creatMatch = line.match(/Creatinine\s*(\d+\.?\d*)/i);
-            if (creatMatch) {
-              const value = parseFloat(creatMatch[1]);
-              if (value > 2) {
-                doc.setTextColor(239, 68, 68);
-                doc.setFont(undefined, 'bold');
-                isHighlighted = true;
-              } else if (value > 1.5) {
-                doc.setTextColor(250, 204, 21);
-                doc.setFont(undefined, 'bold');
-                isHighlighted = true;
-              }
-            }
-          }
-
-          // Check for Hemoglobin
-          if (/\bhb\b/i.test(cleanWord)) {
-            const hbMatch = line.match(/Hb\s*(\d+\.?\d*)/i);
-            if (hbMatch) {
-              const value = parseFloat(hbMatch[1]);
-              if (value < 8) {
-                doc.setTextColor(239, 68, 68);
-                doc.setFont(undefined, 'bold');
-                isHighlighted = true;
-              } else if (value < 11) {
-                doc.setTextColor(250, 204, 21);
-                doc.setFont(undefined, 'bold');
-                isHighlighted = true;
-              }
-            }
-          }
-
-          const wordWidth = doc.getTextWidth(word);
-          if (xPosition + wordWidth > pageWidth - margin) {
-            yPosition += 5;
-            xPosition = margin;
-          }
-
-          doc.text(word, xPosition, yPosition);
-          xPosition += wordWidth;
-
-          if (isHighlighted) {
-            doc.setTextColor(0, 0, 0);
-            doc.setFont(undefined, 'normal');
-          }
-        });
-
-        yPosition += 5;
-      });
-
-      yPosition += 3;
-      doc.setTextColor(0, 0, 0);
-      doc.text("_".repeat(85), margin, yPosition);
-      yPosition += 7;
-    };
-
-    addSection("PRESENTING COMPLAINT", summary.presenting_complaint);
-    addSection("HISTORY", summary.history);
-    addSection("MEDICATIONS & ALLERGIES", summary.meds_allergies);
-    addSection("INVESTIGATIONS", summary.investigations_timeline);
-
-    if (doctorNotes) {
-      addSection("DOCTOR'S NOTES", doctorNotes);
-    }
-
-    doc.save("patient-summary.pdf");
+    const fileName = patientName.trim()
+      ? `${patientName.replace(/\s+/g, "_")}_Medical_Record.pdf`
+      : "Clinical_Report.pdf";
+    doc.save(fileName);
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-8 lg:flex-row h-[calc(100vh-140px)]">
-
-      {/* ---------- LEFT COLUMN ---------- */}
-      <section className="flex w-full flex-col gap-4 lg:w-[35%] h-full">
-        <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow">
-          <p className="mb-2 text-xs font-semibold tracking-[0.2em] text-violet-300">
-            PATIENT REVIEW
-          </p>
-          <h1 className="text-3xl font-semibold text-white">
-            Upload History
+    <div className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-8 lg:flex-row h-[calc(100vh-80px)]">
+      
+      {/* LEFT: UPLOAD PANEL */}
+      <section className="flex w-full flex-col gap-6 lg:w-[280px] h-full shrink-0">
+        
+        <div className="space-y-1 animate-in fade-in slide-in-from-left-8 duration-700">
+          <h1 className={`text-3xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r ${isDark ? "from-white to-slate-400" : "from-slate-800 to-slate-500"}`}>
+            REPORTS
           </h1>
-          <p className="mt-2 text-sm text-slate-300">
-            Get a structured clinical summary from raw notes.
+          <p className={`text-[10px] font-bold uppercase tracking-[0.2em] ${isDark ? "text-slate-500" : "text-slate-400"}`}>
+            Automated Clinical Synthesis
           </p>
         </div>
 
-        <form
-          onSubmit={handleSubmit}
-          className="rounded-3xl border border-white/10 bg-white/5 p-5 flex-1 flex flex-col"
-        >
-          <label className="mb-2 text-xs font-medium uppercase tracking-[0.18em] text-slate-400">
-            Select Files (TXT, PDF)
-          </label>
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 gap-5">
+          <div className="space-y-3 animate-in fade-in slide-in-from-left-8 duration-700 delay-100 fill-mode-both">
+            <label className={`text-[10px] font-black uppercase tracking-widest pl-1 ${isDark ? "text-slate-500" : "text-slate-400"}`}>
+              Patient Details
+            </label>
+            <div className="relative group">
+              <User className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors ${isDark ? "text-slate-500 group-focus-within:text-violet-400" : "text-slate-400 group-focus-within:text-violet-600"}`} />
+              <input
+                type="text"
+                value={patientName}
+                onChange={(e) => setPatientName(e.target.value)}
+                placeholder="Patient Name (Optional)"
+                className={`w-full rounded-[1.5rem] py-3.5 pl-11 pr-4 text-sm outline-none transition-all shadow-inner ${
+                  isDark
+                    ? "bg-white/[0.02] border border-white/[0.08] text-slate-200 focus:border-violet-500/50 focus:bg-white/[0.04] placeholder:text-slate-600"
+                    : "bg-white border border-slate-200 text-slate-800 focus:border-violet-400 focus:bg-violet-50/30 placeholder:text-slate-400"
+                }`}
+              />
+            </div>
+          </div>
 
-          {/* Upload Box */}
           <div
-            className={`relative flex-1 flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-500/60 bg-slate-900/40 px-6 py-6 text-center text-sm text-slate-300 ${
-              loading ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
+            className={`group relative flex-1 flex flex-col items-center justify-center rounded-[2.5rem] border p-8 text-center cursor-pointer transition-all overflow-hidden animate-in fade-in slide-in-from-bottom-8 duration-700 delay-200 fill-mode-both ${
+              isDark
+                ? "border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.04]"
+                : "border-slate-200 bg-white hover:bg-violet-50/30 hover:border-violet-300 shadow-sm"
             }`}
             onClick={() => !loading && fileInputRef.current?.click()}
           >
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".txt,.pdf"
-              multiple
-              onChange={handleFileChange}
-              className="hidden"
-            />
-
-            <div className="mb-2 rounded-full bg-violet-500/10 px-4 py-1.5 text-xs font-medium text-violet-100 border border-violet-500/20">
-              {loading ? "Analyzing..." : "Click to browse files"}
-            </div>
-
-            {files.length === 0 ? (
-              <p className="text-xs text-slate-500">
-                Supports multiple .txt or .pdf files
-              </p>
-            ) : (
-              <div className="w-full mt-3 space-y-2 text-xs text-slate-300">
-                <div className="flex justify-between items-center">
-                  <span>Selected Files ({files.length})</span>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                    e.stopPropagation();
-                    clearAllFiles();
-                }}
-                    className="text-rose-400 hover:underline cursor-pointer"
-                  >
-                    Clear all
-                  </button>
-                </div>
-
-                {files.map((file, index) => (
-                  <div
-                    key={index}
-                    className="flex justify-between items-center bg-slate-800/60 px-2 py-1 rounded"
-                  >
-                    <span className="truncate">📄 {file.name}</span>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                      e.stopPropagation();
-                      removeFile(index);
-                      }}
-                      className="text-rose-400 hover:text-rose-300 cursor-pointer"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
+            <input ref={fileInputRef} type="file" multiple className="hidden" onChange={(e) => setFiles(Array.from(e.target.files))} />
+            <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity animate-pulse pointer-events-none ${isDark ? "bg-violet-500/5" : "bg-violet-100/50"}`} />
+            <div className="relative z-10 pointer-events-none">
+              <div className={`mb-5 mx-auto w-14 h-14 rounded-[1.5rem] border flex items-center justify-center transition-all duration-500 shadow-xl group-hover:scale-110 ${
+                isDark
+                  ? "bg-white/[0.03] border-white/[0.08] text-violet-400 group-hover:text-white"
+                  : "bg-violet-50 border-violet-200 text-violet-600 group-hover:text-violet-800"
+              }`}>
+                <UploadCloud className="w-6 h-6" />
               </div>
-            )}
+              <p className={`text-[13px] font-bold ${isDark ? "text-slate-200" : "text-slate-700"}`}>Import Files</p>
+              <p className={`text-[9px] mt-2 uppercase tracking-widest font-black ${isDark ? "text-slate-600" : "text-slate-400"}`}>PDF • TXT • CSV</p>
+            </div>
+            <div className="w-full mt-6 space-y-2 overflow-y-auto max-h-[120px] custom-scrollbar relative z-10">
+              {files.map((file, index) => (
+                <div key={index} className={`flex justify-between items-center px-3 py-2 rounded-xl border text-[10px] animate-in zoom-in duration-300 ${
+                  isDark ? "bg-black/60 border-white/[0.05] text-slate-400" : "bg-slate-50 border-slate-200 text-slate-500"
+                }`}>
+                  <span className="truncate max-w-[150px] italic">{file.name}</span>
+                </div>
+              ))}
+            </div>
           </div>
 
           <button
             type="submit"
             disabled={loading || !files.length}
-            className="mt-4 rounded-2xl bg-gradient-to-r from-violet-500 via-fuchsia-500 to-sky-400 px-4 py-3 text-sm font-semibold text-slate-950 disabled:opacity-40 flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
+            className={`group w-full rounded-[2rem] px-4 py-4 text-[11px] font-black transition-all hover:tracking-widest active:scale-95 disabled:opacity-20 flex items-center justify-center gap-2 shadow-[0_0_30px_rgba(255,255,255,0.1)] animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300 fill-mode-both cursor-pointer ${
+              isDark ? "bg-white text-black" : "bg-slate-900 text-white hover:bg-slate-800"
+            }`}
           >
-            {loading && (
-              <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-slate-950 border-r-transparent"></div>
-            )}
-            {loading ? "Processing..." : "Generate Summary"}
+            {loading ? "PROCESSING..." : "RUN ANALYSIS"}
+            {!loading && <Zap className={`w-3.5 h-3.5 fill-current transition-colors pointer-events-none ${isDark ? "group-hover:text-violet-600" : "group-hover:text-violet-400"}`} />}
           </button>
-
-          {error && (
-            <p className="mt-3 text-center text-xs text-rose-400">
-              {error}
-            </p>
-          )}
         </form>
       </section>
 
-      {/* ---------- RIGHT COLUMN ---------- */}
-      <section className="flex-1 rounded-3xl border border-white/10 bg-black/40 p-6 overflow-y-auto">
+      {/* RIGHT: BENTO GRID DASHBOARD */}
+      <section className={`flex-1 rounded-[3rem] border p-6 lg:p-8 flex flex-col relative overflow-hidden transition-colors duration-500 ${
+        isDark
+          ? "border-white/[0.05] bg-[#03030b]/80 backdrop-blur-2xl shadow-[inset_0_0_100px_rgba(0,0,0,0.8)]"
+          : "border-slate-200 bg-white/80 backdrop-blur-xl shadow-sm"
+      }`}>
+        
+        {summary && !loading && (
+          <div className="flex flex-col h-full animate-in fade-in slide-in-from-bottom-6 duration-700">
+            
+            <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-6 pb-6 mb-6 border-b shrink-0 animate-in fade-in slide-in-from-top-4 duration-700 delay-150 fill-mode-both ${isDark ? "border-white/[0.05]" : "border-slate-200"}`}>
+              
+              {/* STATUS PILL */}
+              <div className={`inline-flex items-center gap-2.5 px-3 py-1.5 rounded-full border backdrop-blur-md transition-all duration-500 hover:scale-105 ${
+                riskLevel === "High Risk"
+                  ? isDark ? "border-red-500/30 text-red-400 shadow-[0_0_20px_rgba(239,68,68,0.15)] bg-black/50" : "border-red-300 text-red-600 bg-red-50 shadow-sm"
+                  : isDark ? "border-emerald-500/30 text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.15)] bg-black/50" : "border-emerald-300 text-emerald-600 bg-emerald-50 shadow-sm"
+              }`}>
+                <div className="flex h-1.5 w-1.5 relative">
+                  <span className={`animate-ping absolute h-full w-full rounded-full opacity-75 ${riskLevel === "High Risk" ? "bg-red-500" : "bg-emerald-500"}`}></span>
+                  <span className={`relative rounded-full h-1.5 w-1.5 ${riskLevel === "High Risk" ? "bg-red-600" : "bg-emerald-600"}`}></span>
+                </div>
+                <span className="text-[9px] font-black uppercase tracking-[0.2em]">{riskLevel || "STABLE"} STATUS</span>
+              </div>
+
+              {patientName && (
+                <div className="text-right animate-in fade-in slide-in-from-right-8 duration-500">
+                  <h2 className={`text-lg font-bold tracking-tight ${isDark ? "text-white" : "text-slate-800"}`}>{patientName}</h2>
+                  <p className={`text-[9px] font-black uppercase tracking-widest ${isDark ? "text-slate-500" : "text-slate-400"}`}>Active File</p>
+                </div>
+              )}
+            </div>
+
+            {/* SCROLLABLE GRID AREA */}
+            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 pb-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6 auto-rows-fr">
+                <ScrollReveal animationStyle="fade-up" delay={0}>
+                  <Section title="Presenting Complaint" text={summary.presenting_complaint} icon={ClipboardList} accent="violet" isDark={isDark} />
+                </ScrollReveal>
+                <ScrollReveal animationStyle="fade-up" delay={150}>
+                  <Section title="History" text={summary.history} icon={Activity} accent="blue" isDark={isDark} />
+                </ScrollReveal>
+                <ScrollReveal animationStyle="fade-up" delay={300}>
+                  <Section title="Medications & Allergies" text={summary.meds_allergies} icon={Pill} accent="emerald" isDark={isDark} />
+                </ScrollReveal>
+                <ScrollReveal animationStyle="fade-up" delay={450}>
+                  <Section title="Investigations" text={summary.investigations_timeline} icon={Microscope} accent="amber" isDark={isDark} />
+                </ScrollReveal>
+              </div>
+
+              {/* Bottom Row */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <ScrollReveal animationStyle="zoom-in" delay={100} className="lg:col-span-2">
+                  <div className={`relative overflow-hidden rounded-[2rem] border p-6 h-full transition-all duration-500 ${
+                    isDark
+                      ? "bg-black/40 backdrop-blur-md border-white/[0.05] hover:border-white/[0.1] hover:bg-black/60"
+                      : "bg-white border-slate-200 hover:border-violet-200 shadow-sm"
+                  }`}>
+                    <div className="flex items-center gap-2 mb-3 pl-1">
+                      <Info className={`w-3.5 h-3.5 ${isDark ? "text-violet-400" : "text-violet-600"}`} />
+                      <h4 className={`text-[10px] font-black uppercase tracking-[0.2em] ${isDark ? "text-slate-400" : "text-slate-500"}`}>Final Remarks</h4>
+                    </div>
+                    <textarea
+                      value={doctorNotes}
+                      onChange={(e) => setDoctorNotes(e.target.value)}
+                      placeholder="Type additional clinical observations..."
+                      className={`w-full rounded-2xl p-4 text-[13px] leading-relaxed outline-none transition-all min-h-[90px] shadow-inner custom-scrollbar cursor-text h-[calc(100%-30px)] ${
+                        isDark
+                          ? "bg-black/40 border border-white/[0.08] text-slate-300 focus:border-violet-500/50 placeholder:text-slate-700"
+                          : "bg-slate-50 border border-slate-200 text-slate-700 focus:border-violet-400 placeholder:text-slate-400"
+                      }`}
+                    />
+                  </div>
+                </ScrollReveal>
+
+                <ScrollReveal animationStyle="slide-right" delay={250}>
+                  <div className="flex flex-col justify-end h-full">
+                    <button
+                      onClick={handleDownload}
+                      className={`cursor-pointer group flex flex-col items-center justify-center gap-2 h-full min-h-[100px] rounded-[2rem] text-white p-4 transition-all border shadow-lg w-full ${
+                        isDark
+                          ? "bg-gradient-to-br from-violet-600/20 to-sky-600/20 hover:from-violet-600/40 hover:to-sky-600/40 border-white/10 hover:border-violet-400/50"
+                          : "bg-gradient-to-br from-violet-600 to-sky-500 hover:from-violet-700 hover:to-sky-600 border-transparent"
+                      }`}
+                    >
+                      <div className="p-2.5 bg-white/10 rounded-full group-hover:-translate-y-1 transition-transform shadow-md pointer-events-none">
+                        <Download className="w-5 h-5" />
+                      </div>
+                      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-center pointer-events-none">
+                        Export Report
+                      </span>
+                    </button>
+                  </div>
+                </ScrollReveal>
+              </div>
+            </div>
+          </div>
+        )}
+
         {loading && (
-          <div className="flex h-full items-center justify-center">
-            <div className="text-center">
-              <div className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-solid border-violet-500 border-r-transparent"></div>
-              <p className="mt-4 text-sm text-slate-400">Processing your files...</p>
+          <div className="flex h-full items-center justify-center animate-in fade-in duration-500">
+            <div className="flex flex-col items-center gap-5">
+              <div className="relative w-14 h-14">
+                <div className={`absolute inset-0 border-[3px] rounded-full ${isDark ? "border-white/5" : "border-slate-200"}`} />
+                <div className={`absolute inset-0 border-[3px] border-t-violet-500 rounded-full animate-spin`} />
+              </div>
+              <p className={`text-[10px] font-black tracking-[0.5em] uppercase animate-pulse ${isDark ? "text-slate-500" : "text-slate-400"}`}>
+                Computing Data
+              </p>
             </div>
           </div>
         )}
 
         {!summary && !loading && (
-          <div className="flex h-full items-center justify-center text-slate-500">
-            Upload notes to generate summary.
-          </div>
-        )}
-
-        {summary && !loading && (
-          <div className="space-y-4">
-
-            {/* 🔥 RISK BANNER */}
-            {riskLevel && (
-              <div
-                className={`px-4 py-2 rounded-xl text-xs font-semibold ${
-                  riskLevel === "High Risk"
-                    ? "bg-red-500/20 text-red-300 border border-red-500/40"
-                    : riskLevel === "Moderate Risk"
-                    ? "bg-yellow-500/20 text-yellow-300 border border-yellow-500/40"
-                    : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
-                }`}
-              >
-                {riskLevel === "High Risk" && "🔴 High Risk Case — Immediate Attention Suggested"}
-                {riskLevel === "Moderate Risk" && "🟡 Moderate Risk — Monitor Closely"}
-                {riskLevel === "Stable" && "🟢 Stable Condition"}
+          <div className="flex h-full items-center justify-center animate-in fade-in duration-700">
+            <div className="flex flex-col items-center gap-5">
+              <div className="relative flex items-center justify-center">
+                <div className={`absolute h-20 w-20 rounded-full animate-ping ${isDark ? "bg-violet-500/10" : "bg-violet-200/50"}`} />
+                <div className={`relative p-6 rounded-full border shadow-2xl ${isDark ? "bg-white/[0.02] border-white/[0.05]" : "bg-violet-50 border-violet-200"}`}>
+                  <Stethoscope className={`w-8 h-8 ${isDark ? "text-slate-700" : "text-violet-300"}`} />
+                </div>
               </div>
-            )}
-
-            <Section title="Presenting Complaint" text={summary.presenting_complaint} accent="violet" />
-            <Section title="History" text={summary.history} accent="blue" />
-            <Section title="Medications & Allergies" text={summary.meds_allergies} accent="emerald" />
-            <Section title="Investigations" text={summary.investigations_timeline} accent="amber" />
-
-            <div className="mt-4">
-              <label className="block mb-2 text-xs font-medium uppercase tracking-[0.18em] text-slate-400">
-                Doctor's Notes
-              </label>
-              <textarea
-                value={doctorNotes}
-                onChange={(e) => setDoctorNotes(e.target.value)}
-                placeholder="Add clinical observations or additional remarks..."
-                className="w-full rounded-2xl border border-slate-500/60 bg-slate-900/40 px-4 py-3 text-sm text-slate-300 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
-                rows="4"
-              />
+              <p className={`text-[10px] font-black tracking-[0.4em] uppercase ${isDark ? "text-slate-700" : "text-slate-400"}`}>
+                Awaiting Upload
+              </p>
             </div>
-
-            <button
-              onClick={handleDownload}
-              className="mt-4 px-4 py-2 rounded-lg bg-sky-500 text-black text-xs font-semibold cursor-pointer"
-            >
-              Download as PDF
-            </button>
-
           </div>
         )}
       </section>
@@ -590,11 +407,18 @@ export function SummaryContent() {
   );
 }
 
-/* ---------- PAGE WRAPPER ---------- */
 export default function SummaryPage() {
+  const { isDark } = useTheme();
+
   return (
-    <div className="min-h-screen bg-[#050515] text-slate-100 flex flex-col">
-      <main className="flex-1 px-6 py-6 overflow-hidden">
+    <div className={`min-h-screen flex flex-col font-sans selection:bg-violet-500/30 transition-colors duration-500 ${isDark ? "bg-[#020205] text-slate-100" : "bg-slate-50 text-slate-900"}`}>
+      <style>{getCustomGlobalStyles(isDark)}</style>
+
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <div className={`absolute top-[-20%] left-[-10%] h-[60%] w-[50%] rounded-full blur-[150px] ${isDark ? "bg-violet-900/10" : "bg-violet-200/30"}`} />
+        <div className={`absolute bottom-[-20%] right-[-10%] h-[60%] w-[50%] rounded-full blur-[150px] ${isDark ? "bg-sky-900/10" : "bg-sky-200/30"}`} />
+      </div>
+      <main className="relative z-10 flex-1 px-4 py-4 lg:px-8 lg:py-8 overflow-hidden h-screen">
         <SummaryContent />
       </main>
     </div>
