@@ -1,4 +1,4 @@
-# 🏥 Clinical Review System (CRS)
+# Clinical Review System (CRS)
 
 > An intelligent medical document analysis platform that extracts, structures, and explains clinical information from scanned and digital reports using OCR, NLP, and local LLM inference.
 
